@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SkillMatch
 
-## Getting Started
+### Find the people who make your half-finished idea suddenly make sense.
 
-First, run the development server:
+SkillMatch is a polished student collaboration app for discovering people, projects, ideas, and the next thing worth building.
+
+It is intentionally easy to show off: the Supabase backend is currently unplugged, so the app runs in a reliable demo mode with realistic placeholder data. No database setup. No auth ceremony. No tiny server wearing a fake moustache.
+
+## Run it locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000), head to the login or signup page, and choose **Continue as Guest**.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+For a production build:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+## What is inside
 
-To learn more about Next.js, take a look at the following resources:
+- A dark, focused dashboard for student builders
+- Browseable students, projects, ideas, badges, messages, and recommendations
+- Guest mode with mock data, so the frontend remains useful without a backend
+- Supabase-ready structure for reconnecting real authentication and data later
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project notes
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+This is a frontend-first portfolio project: something you can open quickly, explain clearly, and use as a starting point when the real backend comes back from its little vacation.
 
-## Deploy on Vercel
+The main app lives in `app/`, reusable UI lives in `components/`, and the demo fallback data lives in `utils/demo-data.ts`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Built with
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Next.js, React, TypeScript, Tailwind CSS, and a healthy amount of purple.
