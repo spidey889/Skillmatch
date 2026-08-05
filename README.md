@@ -1,6 +1,6 @@
 # SkillMatch
 
-The app where student builders find teammates, ideas, and occasionally remember to commit.
+The app where student builders find teammates, ideas, and someone to blame when the group project gets weird.
 
 Dark mode. Purple gradients. Suspiciously confident dashboards.
 
