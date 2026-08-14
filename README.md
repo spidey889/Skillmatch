@@ -2,6 +2,8 @@
 
 The app where student builders find teammates, ideas, and someone to blame when the group project gets weird.
 
+This is a lightweight prototype for matching student builders with collaborators and project ideas.
+
 Dark mode. Purple gradients. Suspiciously confident dashboards.
 
 ## Run it
