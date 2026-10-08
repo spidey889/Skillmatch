@@ -3,9 +3,9 @@
 import { useState, useEffect, KeyboardEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { readDemo, writeDemo } from '@/utils/demo-store'
 import { createClient } from '@/utils/supabase/client'
 import { isGuestMode } from '@/utils/guest'
-import { DEMO_PROJECTS } from '@/utils/demo-data'
 
 interface Project {
   id: string
@@ -24,6 +24,7 @@ export default function ProjectsPage() {
   
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
+  const [requestError, setRequestError] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   
   // Form State
@@ -35,7 +36,7 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     if (isGuestMode()) {
-      setProjects(DEMO_PROJECTS)
+      setProjects(readDemo('projects'))
       setLoading(false)
       return
     }
@@ -51,6 +52,7 @@ export default function ProjectsPage() {
 
     if (error) {
       console.error('Error fetching projects:', error)
+        setRequestError('Could not load data. Check the backend connection and reload.')
     } else {
       setProjects(data || [])
     }
@@ -76,6 +78,11 @@ export default function ProjectsPage() {
     setFormLoading(true)
 
     if (isGuestMode()) {
+      const next = [{ id: crypto.randomUUID(), title, description, skills_needed: skillsNeeded, creator_id: 'guest-user', members: ['guest-user'], status: 'open', created_at: new Date().toISOString() }, ...readDemo('projects')]
+      writeDemo('projects', next)
+      setProjects(next)
+      setIsModalOpen(false)
+      setTitle(''); setDescription(''); setSkillsNeeded([])
       setFormLoading(false)
       return
     }
@@ -100,7 +107,7 @@ export default function ProjectsPage() {
 
     if (error) {
       console.error('Error creating project:', error)
-      alert('Error creating project. Please try again.')
+      setRequestError('Could not create the project. Please try again.')
     } else {
       setIsModalOpen(false)
       setTitle('')
@@ -113,6 +120,7 @@ export default function ProjectsPage() {
 
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+      {requestError && <p role="alert" className="p-4 text-red-400">{requestError}</p>}
       <div className="max-w-6xl mx-auto">
         {/* Header Section */}
         <div className="mb-12">

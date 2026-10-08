@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { readDemo, demoStudents } from '@/utils/demo-store'
 import { createClient } from '@/utils/supabase/client'
 import { isGuestMode } from '@/utils/guest'
-import { DEMO_CONVERSATIONS } from '@/utils/demo-data'
 
 interface Message {
   id: string
@@ -30,11 +30,19 @@ export default function MessagesList() {
   
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
+  const [requestError, setRequestError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchConversations = async () => {
       if (isGuestMode()) {
-        setConversations(DEMO_CONVERSATIONS)
+        const groups = new Map<string, Conversation>()
+        for (const message of [...readDemo('messages')].sort((a, b) => b.created_at.localeCompare(a.created_at))) {
+          const otherId = message.sender_id === 'guest-user' ? message.receiver_id : message.sender_id
+          const existing = groups.get(otherId)
+          if (existing) { if (message.receiver_id === 'guest-user' && !message.read) existing.unreadCount++; continue }
+          groups.set(otherId, { otherUserId: otherId, otherUserName: demoStudents().find(student => student.id === otherId)?.full_name || 'Student', lastMessage: message.content, lastMessageTime: message.created_at, unreadCount: message.receiver_id === 'guest-user' && !message.read ? 1 : 0 })
+        }
+        setConversations([...groups.values()])
         setLoading(false)
         return
       }
@@ -54,6 +62,7 @@ export default function MessagesList() {
 
       if (msgError) {
         console.error('Error fetching messages:', msgError)
+        setRequestError('Could not load data. Check the backend connection and reload.')
         setLoading(false)
         return
       }
@@ -80,6 +89,7 @@ export default function MessagesList() {
 
       if (profError) {
         console.error('Error fetching profiles:', profError)
+        setRequestError('Could not load data. Check the backend connection and reload.')
         setLoading(false)
         return
       }
@@ -111,6 +121,8 @@ export default function MessagesList() {
 
     fetchConversations()
   }, [supabase, router])
+
+  if (requestError) return <div role="alert" className="p-8 text-center"><p>{requestError}</p><button onClick={() => window.location.reload()} className="mt-4 underline">Reload</button></div>
 
   if (loading) {
     return (

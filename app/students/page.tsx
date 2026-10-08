@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { demoStudents } from '@/utils/demo-store'
 import { createClient } from '@/utils/supabase/client'
 import { isGuestMode } from '@/utils/guest'
-import { DEMO_STUDENTS } from '@/utils/demo-data'
 
 interface Profile {
   id: string
@@ -21,14 +21,15 @@ export default function StudentsBrowse() {
   const [students, setStudents] = useState<Profile[]>([])
   const [filteredStudents, setFilteredStudents] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
+  const [requestError, setRequestError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [yearFilter, setYearFilter] = useState('All Years')
 
   useEffect(() => {
     const fetchStudents = async () => {
       if (isGuestMode()) {
-        setStudents(DEMO_STUDENTS)
-        setFilteredStudents(DEMO_STUDENTS)
+        setStudents(demoStudents())
+        setFilteredStudents(demoStudents())
         setLoading(false)
         return
       }
@@ -40,6 +41,7 @@ export default function StudentsBrowse() {
 
       if (error) {
         console.error('Error fetching students:', error)
+        setRequestError('Could not load data. Check the backend connection and reload.')
       } else {
         setStudents(data || [])
         setFilteredStudents(data || [])
@@ -69,6 +71,8 @@ export default function StudentsBrowse() {
 
     setFilteredStudents(result)
   }, [searchQuery, yearFilter, students])
+
+  if (requestError) return <div role="alert" className="p-8 text-center"><p>{requestError}</p><button onClick={() => window.location.reload()} className="mt-4 underline">Reload</button></div>
 
   if (loading) {
     return (

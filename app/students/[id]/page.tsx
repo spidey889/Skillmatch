@@ -2,6 +2,8 @@
 
 import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
+import { isGuestMode } from '@/utils/guest'
+import { demoStudents } from '@/utils/demo-store'
 import { createClient } from '@/utils/supabase/client'
 
 interface Profile {
@@ -19,9 +21,11 @@ export default function StudentProfile({ params }: { params: Promise<{ id: strin
   
   const [student, setStudent] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [requestError, setRequestError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchStudent = async () => {
+      if (isGuestMode()) { setStudent(demoStudents().find(student => student.id === id) || null); setLoading(false); return }
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -30,6 +34,7 @@ export default function StudentProfile({ params }: { params: Promise<{ id: strin
 
       if (error) {
         console.error('Error fetching student:', error)
+        setRequestError('Could not load data. Check the backend connection and reload.')
       } else {
         setStudent(data)
       }
@@ -38,6 +43,8 @@ export default function StudentProfile({ params }: { params: Promise<{ id: strin
 
     fetchStudent()
   }, [supabase, id])
+
+  if (requestError) return <div role="alert" className="p-8 text-center"><p>{requestError}</p><button onClick={() => window.location.reload()} className="mt-4 underline">Reload</button></div>
 
   if (loading) {
     return (

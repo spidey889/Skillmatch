@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { readDemo, demoStudents } from '@/utils/demo-store'
 import { createClient } from '@/utils/supabase/client'
 import { isGuestMode } from '@/utils/guest'
-import { DEMO_PROFILE, DEMO_RECOMMENDATIONS } from '@/utils/demo-data'
 
 interface Profile {
   id: string
@@ -27,12 +27,16 @@ export default function RecommendationsPage() {
   const [recommendations, setRecommendations] = useState<RecommendedStudent[]>([])
   const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [requestError, setRequestError] = useState<string | null>(null)
 
   useEffect(() => {
     const getRecommendations = async () => {
       if (isGuestMode()) {
-        setCurrentUserProfile(DEMO_PROFILE)
-        setRecommendations(DEMO_RECOMMENDATIONS)
+        const profile = readDemo('profile')
+        setCurrentUserProfile(profile)
+        setRecommendations(demoStudents().filter(student => student.id !== profile.id).map(student => ({
+          ...student, commonSkills: student.skills.filter(skill => profile.skills.some(own => own.trim().toLowerCase() === skill.trim().toLowerCase()))
+        })).filter(student => student.commonSkills.length > 0).sort((a, b) => b.commonSkills.length - a.commonSkills.length))
         setLoading(false)
         return
       }
@@ -69,6 +73,7 @@ export default function RecommendationsPage() {
 
       if (error) {
         console.error('Error fetching profiles:', error)
+        setRequestError('Could not load data. Check the backend connection and reload.')
         setLoading(false)
         return
       }
@@ -90,6 +95,8 @@ export default function RecommendationsPage() {
 
     getRecommendations()
   }, [supabase, router])
+
+  if (requestError) return <div role="alert" className="p-8 text-center"><p>{requestError}</p><button onClick={() => window.location.reload()} className="mt-4 underline">Reload</button></div>
 
   if (loading) {
     return (
@@ -122,7 +129,7 @@ export default function RecommendationsPage() {
       <div className="max-w-6xl mx-auto">
         <div className="mb-12 flex flex-col sm:flex-row justify-between items-center gap-6">
           <div className="text-center sm:text-left">
-            <h1 className="text-4xl font-black text-slate-900 tracking-tight">AI Recommendations</h1>
+            <h1 className="text-4xl font-black text-slate-900 tracking-tight">Skill Matches</h1>
             <p className="text-slate-600 mt-2">Based on your expertise in <span className="font-bold text-indigo-600">{currentUserProfile.skills.join(', ')}</span>.</p>
           </div>
           <Link href="/dashboard" className="text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors flex items-center gap-1">

@@ -16,7 +16,7 @@ export default function Navbar() {
   const [guestMode, setGuestMode] = useState(false)
 
   useEffect(() => {
-    // The browser client intentionally has no persisted session. Do not make
+    // Avoid a backend request during offline preview. Do not make
     // a mount-time auth request to a backend that may be unavailable.
     setLoading(false)
     setGuestMode(isGuestMode())

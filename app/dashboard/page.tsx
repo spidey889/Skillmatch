@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { readDemo } from '@/utils/demo-store'
 import { createClient } from '@/utils/supabase/client'
 import NeuralCanvas from '@/components/NeuralCanvas'
 import { GUEST_USER, isGuestMode } from '@/utils/guest'
-import { DEMO_ACTIVITIES, DEMO_PROFILE, DEMO_PROJECTS } from '@/utils/demo-data'
 
 type ProjectRow = {
   title: string
@@ -44,9 +44,12 @@ export default function Dashboard() {
     const getData = async () => {
       if (isGuestMode()) {
         setUser(GUEST_USER)
-        setProfile(DEMO_PROFILE)
-        setActivities(DEMO_ACTIVITIES)
-        setProjectCount(DEMO_PROJECTS.length)
+        setProfile(readDemo('profile'))
+        setActivities([
+          ...readDemo('projects').filter(project => project.creator_id === GUEST_USER.id || project.members.includes(GUEST_USER.id)).map(project => ({ type: 'project', title: `${project.creator_id === GUEST_USER.id ? 'Started' : 'Joined'} "${project.title}"`, time: project.created_at, date: new Date(project.created_at), icon: '?' })),
+          ...readDemo('pitches').filter(pitch => pitch.creator_id === GUEST_USER.id).map(pitch => ({ type: 'idea', title: `Pitched "${pitch.title}"`, time: pitch.created_at, date: new Date(pitch.created_at), icon: '?' })),
+        ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 5))
+        setProjectCount(readDemo('projects').filter(project => project.members.includes(GUEST_USER.id)).length)
         setLoading(false)
         return
       }

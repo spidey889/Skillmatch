@@ -3,9 +3,9 @@
 import { useState, useEffect, KeyboardEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { readDemo, writeDemo } from '@/utils/demo-store'
 import { createClient } from '@/utils/supabase/client'
 import { isGuestMode } from '@/utils/guest'
-import { DEMO_PITCHES } from '@/utils/demo-data'
 
 interface Pitch {
   id: string
@@ -28,6 +28,7 @@ export default function IdeasPage() {
   const [pitches, setPitches] = useState<Pitch[]>([])
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [requestError, setRequestError] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   
   // Form State
@@ -40,7 +41,8 @@ export default function IdeasPage() {
   useEffect(() => {
     const getData = async () => {
       if (isGuestMode()) {
-        setPitches(DEMO_PITCHES)
+        setUser({ id: 'guest-user' })
+        setPitches(readDemo('pitches'))
         setLoading(false)
         return
       }
@@ -61,39 +63,47 @@ export default function IdeasPage() {
 
     if (error) {
       console.error('Error fetching pitches:', error)
+        setRequestError('Could not load data. Check the backend connection and reload.')
     } else {
       setPitches(pitchesData || [])
     }
     setLoading(false)
   }
 
-  const handleUpvote = async (pitchId: string, currentUpvotes: number) => {
-    if (isGuestMode()) return
+  const handleUpvote = async (pitchId: string) => {
+    if (isGuestMode()) {
+      if (readDemo('votes').includes(pitchId)) return
+      writeDemo('votes', [...readDemo('votes'), pitchId])
+      const next = readDemo('pitches').map(pitch => pitch.id === pitchId ? { ...pitch, upvotes: pitch.upvotes + 1 } : pitch)
+      writeDemo('pitches', next); setPitches(next); return
+    }
 
     if (!user) {
       router.push('/login')
       return
     }
 
-    const { error } = await supabase
-      .from('idea_pitches')
-      .update({ upvotes: currentUpvotes + 1 })
-      .eq('id', pitchId)
+    const { data, error } = await supabase.rpc('upvote_idea', { pitch_id: pitchId })
 
-    if (!error) {
-      setPitches(pitches.map(p => p.id === pitchId ? { ...p, upvotes: p.upvotes + 1 } : p))
+    if (error) setRequestError('Could not vote. Please try again.')
+    else {
+      setPitches(pitches.map(p => p.id === pitchId ? { ...p, upvotes: data as number } : p))
     }
   }
 
   const handleReveal = async (pitchId: string) => {
-    if (isGuestMode()) return
+    if (isGuestMode()) {
+      const next = readDemo('pitches').map(pitch => pitch.id === pitchId ? { ...pitch, revealed: true, creator_profile: { full_name: readDemo('profile').full_name } } : pitch)
+      writeDemo('pitches', next); setPitches(next); return
+    }
 
     const { error } = await supabase
       .from('idea_pitches')
       .update({ revealed: true })
       .eq('id', pitchId)
 
-    if (!error) {
+    if (error) setRequestError('Could not reveal the idea. Please try again.')
+    else {
       fetchPitches() // Refresh to get profile info
     }
   }
@@ -117,6 +127,9 @@ export default function IdeasPage() {
     setFormLoading(true)
 
     if (isGuestMode()) {
+      const next = [{ id: crypto.randomUUID(), title, description, skills_needed: skillsNeeded, creator_id: 'guest-user', revealed: false, upvotes: 0, created_at: new Date().toISOString() }, ...readDemo('pitches')]
+      writeDemo('pitches', next); setPitches(next)
+      setIsModalOpen(false); setTitle(''); setDescription(''); setSkillsNeeded([])
       setFormLoading(false)
       return
     }
@@ -142,11 +155,13 @@ export default function IdeasPage() {
       setSkillsNeeded([])
       fetchPitches()
     }
+    if (error) setRequestError('Could not save the idea. Please try again.')
     setFormLoading(false)
   }
 
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+      {requestError && <p role="alert" className="p-4 text-red-400">{requestError}</p>}
       <div className="max-w-5xl mx-auto">
         {/* Header Section */}
         <div className="mb-12">
@@ -204,7 +219,7 @@ export default function IdeasPage() {
                       </div>
                       <div className="flex flex-col items-end">
                         <button 
-                          onClick={() => handleUpvote(pitch.id, pitch.upvotes)}
+                          onClick={() => handleUpvote(pitch.id)}
                           className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/5 rounded-xl hover:bg-indigo-500/20 hover:border-indigo-500/30 hover:text-white transition-all text-slate-400 active:scale-95 shadow-inner group/vote"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="group-hover/vote:-translate-y-0.5 transition-transform"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>

@@ -3,9 +3,9 @@
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { readDemo, writeDemo } from '@/utils/demo-store'
 import { createClient } from '@/utils/supabase/client'
 import { isGuestMode } from '@/utils/guest'
-import { DEMO_PROJECTS } from '@/utils/demo-data'
 
 interface Project {
   id: string
@@ -31,7 +31,8 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
   useEffect(() => {
     const getData = async () => {
       if (isGuestMode()) {
-        setProject(DEMO_PROJECTS.find((item) => item.id === id) || DEMO_PROJECTS[0])
+        setUser({ id: 'guest-user' })
+        setProject(readDemo('projects').find(item => item.id === id) || null)
         setLoading(false)
         return
       }
@@ -60,18 +61,20 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
     if (!user || !project) return
     setActionLoading(true)
     
-    const newMembers = [...(project.members || []), user.id]
+    const newMembers = [...new Set([...(project.members || []), user.id])]
+    if (isGuestMode()) {
+      const updated = { ...project, members: newMembers }
+      writeDemo('projects', readDemo('projects').map(item => item.id === id ? updated : item))
+      setProject(updated); setActionLoading(false); return
+    }
     
-    const { error } = await supabase
-      .from('projects')
-      .update({ members: newMembers })
-      .eq('id', id)
+    const { data, error } = await supabase.rpc('set_project_membership', { project_id: id, joining: true })
 
     if (error) {
       console.error('Error joining project:', error)
       alert('Error joining project. Please try again.')
     } else {
-      setProject({ ...project, members: newMembers })
+      setProject((Array.isArray(data) ? data[0] : data) as Project)
     }
     setActionLoading(false)
   }
@@ -81,23 +84,43 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
     setActionLoading(true)
     
     const newMembers = (project.members || []).filter(m => m !== user.id)
+    if (isGuestMode()) {
+      const updated = { ...project, members: newMembers }
+      writeDemo('projects', readDemo('projects').map(item => item.id === id ? updated : item))
+      setProject(updated); setActionLoading(false); return
+    }
     
-    const { error } = await supabase
-      .from('projects')
-      .update({ members: newMembers })
-      .eq('id', id)
+    const { data, error } = await supabase.rpc('set_project_membership', { project_id: id, joining: false })
 
     if (error) {
       console.error('Error leaving project:', error)
       alert('Error leaving project. Please try again.')
     } else {
-      setProject({ ...project, members: newMembers })
+      setProject((Array.isArray(data) ? data[0] : data) as Project)
     }
     setActionLoading(false)
   }
 
+  const handleEdit = async () => {
+    if (!project || user?.id !== project.creator_id) return
+    const description = window.prompt('Edit project description', project.description)
+    if (description === null || !description.trim()) return
+    const updated = { ...project, description: description.trim() }
+    if (isGuestMode()) {
+      writeDemo('projects', readDemo('projects').map(item => item.id === id ? updated : item))
+      setProject(updated); return
+    }
+    setActionLoading(true)
+    const { error } = await supabase.from('projects').update({ description: updated.description }).eq('id', id)
+    if (error) alert('Could not save the project. Please try again.')
+    else setProject(updated)
+    setActionLoading(false)
+  }
+
   const handleDelete = async () => {
+    if (!project || user?.id !== project.creator_id) return
     if (!confirm('Are you sure you want to delete this project?')) return
+    if (isGuestMode()) { writeDemo('projects', readDemo('projects').filter(item => item.id !== id)); router.push('/projects'); return }
     setActionLoading(true)
     
     const { error } = await supabase
@@ -160,7 +183,7 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
 
           {isCreator && (
             <div className="flex gap-2">
-              <button className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all">
+              <button onClick={handleEdit} disabled={actionLoading} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all">
                 Edit
               </button>
               <button 

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-08
+
+- Made the offline college demo usable without backend credentials: saved profile/project/idea/message actions, project description editing, join/leave/delete, isolated conversations, and working student detail pages.
+- Replaced inconsistent static demo counts, activity, achievements, and recommendations with saved-state reads. Renamed recommendations to Skill Matches to reflect the actual algorithm.
+- Added explicit backend opt-in, restored normal session persistence/refresh for that path, preserved the signup profile-setup redirect, and added visible request failures and five-second backend chat polling.
+- Added a fresh-project SQL bootstrap with RLS, restricted message updates, atomic membership changes, and deduplicated voting. Documented that real backend reconnection still requires a live Supabase project.
+- Added demo persistence/isolation/storage-failure tests and locally verified database ownership, membership, voting, and private-message permissions. Production build and TypeScript pass; lint comparison found 27 existing errors in changed files (28 before), with no added findings.
+
 ## 2026-08-05
 
 - Fixed strict TypeScript callback typing for badge, dashboard, messages, recommendations, and navigation auth-state code.

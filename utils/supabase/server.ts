@@ -1,12 +1,14 @@
 import { createServerClient } from '@supabase/ssr'
+import { backendEnabled, supabaseUrl, supabaseKey } from './config'
 import { cookies } from 'next/headers'
 
 export async function createClient() {
+  if (!backendEnabled) throw new Error('Supabase is disabled. Use guest mode.')
   const cookieStore = await cookies()
 
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseKey,
     {
       cookies: {
         getAll() {

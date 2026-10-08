@@ -1,15 +1,21 @@
-# SkillMatch production behavior
+# SkillMatch architecture and behavior
 
-SkillMatch is a Next.js App Router application. Supabase-backed reads and writes are guarded by the page-level fallback behavior so the app can render guest/mock content when the backend is unavailable. The login page provides a guest path that skips Supabase authentication and enters the dashboard.
+SkillMatch is a Next.js 16 App Router college prototype using strict TypeScript and Supabase. Turbopack's root is pinned to this directory. Auth forms wrap useSearchParams in Suspense.
 
-The project uses strict TypeScript checking. Supabase query rows are locally typed at callback boundaries where generated database types are not configured. Login and signup pages place their `useSearchParams` consumers behind Suspense so static production prerendering remains valid in Next.js 16.
+## Offline demo (default)
 
-Turbopack's filesystem root is explicitly pinned to the directory containing `next.config.ts`. This prevents an external launch workspace from changing module resolution away from `skillmatch/node_modules`.
+Unless NEXT_PUBLIC_SUPABASE_ENABLED=true, pages use local fixtures and never contact Supabase. Browser client auth persistence and refresh are disabled in this mode, and accidental requests return a local 503. Login/signup explain that the backend is disabled and offer Continue as Guest. No database credentials are required for the demo.
 
-The browser Supabase client does not persist sessions, auto-refresh tokens, or inspect auth callback URLs. The global navbar also avoids an automatic mount-time `getUser()` request; auth requests remain limited to explicit protected-page or user actions.
+utils/demo-store.ts keeps profile, project, idea, vote, and message changes in versioned localStorage keys, with a session fallback if storage is blocked/full. Changes survive reloads. Clearing browser storage resets the demo. This is one local guest account, not multi-user authentication. Demo chats isolate messages by recipient and do not simulate replies. Profiles, dashboard activity/counts, achievements, and skill matches read the same saved state.
 
-Middleware auth is opt-in through `SUPABASE_AUTH_ENABLED=true`. With the backend disabled, middleware returns the request immediately and never constructs a Supabase auth client. If explicitly enabled, its `getUser()` check is fail-open and catches backend failures without logging or redirecting.
+Projects support creation, description editing, deletion, joining, and leaving. Ideas support creation, one vote per guest per idea, and owner identity reveal. Missing project/student IDs show not-found states rather than unrelated fixtures. Skill matches are case-insensitive shared-skill comparisons, not AI.
 
-Guest mode uses local-only demo fixtures from `utils/demo-data.ts`. These fixtures populate the main directory, project, idea, messaging, dashboard, badge, recommendation, and profile views without changing the Supabase-backed path. The app uses a system font stack so a demo build does not require Google Fonts network access.
+## Optional Supabase backend
 
-The signup and dashboard screens share the same dark-indigo foundation but use quieter surfaces, tighter hierarchy, plain-language copy, and lower-motion decoration so they read as a product demo rather than a generated concept page.
+Configure a fresh Supabase project using database/setup.sql and the README environment settings. Browser auth uses the normal cookie-backed SSR defaults when enabled, so sessions persist and refresh. Middleware refreshes auth only when enabled; pages check authentication and database RLS protects writes and private messages. Middleware does not redirect public/guest previews.
+
+The bootstrap defines profiles, projects, idea_pitches, messages, badges, and private vote records. RLS restricts profile writes and project edits/deletes to their owners and message reads to participants. Only receivers can update the read column. Private SQL functions behind invoker RPC wrappers perform atomic membership updates and deduplicated votes; direct client writes cannot replace members or vote counters. Badges remain cosmetic, client-calculated achievements. Idea anonymity is display-only: authenticated users can inspect creator IDs through the API.
+
+Backend chat polls every five seconds while visible, stops on unmount, and preserves reading position during refreshes. Failed sends restore the draft and show an inline error. List/query failures show a visible reload notice rather than appearing to be empty results.
+
+The previously configured backend is unreachable. The new schema and permissions were tested locally in PostgreSQL via PGlite, not applied to a hosted project.

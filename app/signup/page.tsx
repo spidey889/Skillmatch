@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
+import { backendEnabled } from '@/utils/supabase/config'
 import NeuralCanvas from '@/components/NeuralCanvas'
 import { enterGuestMode } from '@/utils/guest'
 
@@ -35,6 +36,7 @@ function SignupContent() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!backendEnabled) { setMessage('Backend disabled. Use Continue as Guest to try the app.'); return }
     setLoading(true)
     setMessage(null)
 

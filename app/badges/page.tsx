@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
+import { readDemo } from '@/utils/demo-store'
 import { isGuestMode } from '@/utils/guest'
 
 interface Badge {
@@ -62,7 +63,14 @@ export default function BadgesPage() {
   useEffect(() => {
     const checkBadges = async () => {
       if (isGuestMode()) {
-        setEarnedBadges(['profile_complete', 'skill_master'])
+        const profile = readDemo('profile')
+        const projects = readDemo('projects')
+        setEarnedBadges([
+          ...(profile.full_name && profile.bio && profile.university ? ['profile_complete'] : []),
+          ...(profile.skills.length >= 5 ? ['skill_master'] : []),
+          ...(projects.some(project => project.creator_id === 'guest-user') ? ['first_project'] : []),
+          ...(projects.filter(project => project.members.includes('guest-user')).length >= 3 ? ['team_player'] : []),
+        ])
         setLoading(false)
         return
       }
@@ -118,6 +126,8 @@ export default function BadgesPage() {
         }
       }
 
+      setEarnedBadges(currentBadges)
+
       // 3. Award new badges
       if (toAward.length > 0) {
         const insertData = toAward.map(type => ({
@@ -128,10 +138,10 @@ export default function BadgesPage() {
         const { error } = await supabase.from('badges').insert(insertData)
         if (!error) {
           setNewlyAwarded(toAward)
+          setEarnedBadges([...currentBadges, ...toAward])
         }
       }
 
-      setEarnedBadges([...currentBadges, ...toAward])
       setLoading(false)
     }
 

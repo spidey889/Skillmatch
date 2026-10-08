@@ -2,9 +2,9 @@
 
 import { useState, useEffect, KeyboardEvent } from 'react'
 import { useRouter } from 'next/navigation'
+import { readDemo, writeDemo } from '@/utils/demo-store'
 import { createClient } from '@/utils/supabase/client'
 import { isGuestMode } from '@/utils/guest'
-import { DEMO_PROFILE } from '@/utils/demo-data'
 
 export default function ProfileSetup() {
   const router = useRouter()
@@ -23,11 +23,12 @@ export default function ProfileSetup() {
   useEffect(() => {
     const checkUser = async () => {
       if (isGuestMode()) {
-        setFullName(DEMO_PROFILE.full_name)
-        setBio(DEMO_PROFILE.bio)
-        setSkills(DEMO_PROFILE.skills)
-        setUniversity(DEMO_PROFILE.university)
-        setYearOfStudy(DEMO_PROFILE.year_of_study)
+        const profile = readDemo('profile')
+        setFullName(profile.full_name)
+        setBio(profile.bio)
+        setSkills(profile.skills)
+        setUniversity(profile.university)
+        setYearOfStudy(profile.year_of_study)
         return
       }
 
@@ -76,7 +77,9 @@ export default function ProfileSetup() {
     setError(null)
 
     if (isGuestMode()) {
+      writeDemo('profile', { id: 'guest-user', full_name: fullName, bio, skills, university, year_of_study: yearOfStudy })
       setLoading(false)
+      router.push('/dashboard')
       return
     }
 

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { backendEnabled } from '@/utils/supabase/config'
 // The client you created in Step 2
 import { createClient } from '@/utils/supabase/server'
 
@@ -6,7 +7,9 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
   // Always redirect to dashboard after successful auth
-  const next = '/dashboard'
+  const next = searchParams.get('next') === '/profile/setup' ? '/profile/setup' : '/dashboard'
+
+  if (!backendEnabled) return NextResponse.redirect(`${origin}/login?message=Backend+disabled.+Continue+as+Guest.`)
 
   if (code) {
     const supabase = await createClient()

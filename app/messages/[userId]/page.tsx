@@ -3,9 +3,9 @@
 import { useState, useEffect, useRef, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { readDemo, writeDemo, demoStudents, demoConversation } from '@/utils/demo-store'
 import { createClient } from '@/utils/supabase/client'
 import { isGuestMode } from '@/utils/guest'
-import { DEMO_MESSAGES, DEMO_STUDENTS } from '@/utils/demo-data'
 
 interface Message {
   id: string
@@ -27,14 +27,21 @@ export default function ChatPage({ params }: { params: Promise<{ userId: string 
   const [otherUser, setOtherUser] = useState<any>(null)
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
+  const [requestError, setRequestError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
 
   useEffect(() => {
+    let currentId: string | null = null
+    let refreshing = false
+    let cancelled = false
     const getData = async () => {
       if (isGuestMode()) {
         setCurrentUser({ id: 'guest-user', email: 'guest@skillmatch.local' })
-        setOtherUser(DEMO_STUDENTS.find((student) => student.id === userId) || DEMO_STUDENTS[1])
-        setMessages(DEMO_MESSAGES)
+        setOtherUser(demoStudents().find(student => student.id === userId) || null)
+        const messages = demoConversation(userId).map(message => ({ ...message, read: true }))
+        const ids = new Set(messages.map(message => message.id))
+        writeDemo('messages', readDemo('messages').map(message => ids.has(message.id) ? { ...message, read: true } : message))
+        setMessages(messages)
         setLoading(false)
         return
       }
@@ -44,6 +51,7 @@ export default function ChatPage({ params }: { params: Promise<{ userId: string 
         router.push('/login')
         return
       }
+      currentId = user.id
       setCurrentUser(user)
 
       // Fetch other user profile
@@ -65,7 +73,10 @@ export default function ChatPage({ params }: { params: Promise<{ userId: string 
         .or(`and(sender_id.eq.${currentId},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${currentId})`)
         .order('created_at', { ascending: true })
 
-      if (!error) {
+      if (cancelled) return
+      if (error) setRequestError("Could not refresh messages. Check the backend connection.")
+      else {
+        setRequestError(null)
         setMessages(data || [])
         
         // Mark as read
@@ -80,10 +91,16 @@ export default function ChatPage({ params }: { params: Promise<{ userId: string 
         }
       }
       setLoading(false)
-      scrollToBottom()
+      // Do not force-scroll on every background refresh; keep reading position.
     }
 
-    getData()
+    getData().catch(() => { setRequestError('Could not load messages. Please reload.'); setLoading(false) })
+    const timer = window.setInterval(async () => {
+      if (!currentId || document.hidden || refreshing) return
+      refreshing = true
+      try { await fetchMessages(currentId) } catch { setRequestError('Could not refresh messages. Please try again.') } finally { refreshing = false }
+    }, 5000)
+    return () => { cancelled = true; window.clearInterval(timer) }
   }, [supabase, userId, router])
 
   const scrollToBottom = () => {
@@ -99,6 +116,10 @@ export default function ChatPage({ params }: { params: Promise<{ userId: string 
     setSending(true)
     const content = newMessage.trim()
     setNewMessage('')
+    if (isGuestMode()) {
+      writeDemo('messages', [...readDemo('messages'), { id: crypto.randomUUID(), sender_id: 'guest-user', receiver_id: userId, content, read: false, created_at: new Date().toISOString() }])
+      setMessages(demoConversation(userId)); setSending(false); scrollToBottom(); return
+    }
 
     const { error } = await supabase
       .from('messages')
@@ -110,7 +131,7 @@ export default function ChatPage({ params }: { params: Promise<{ userId: string 
 
     if (error) {
       console.error('Error sending message:', error)
-      alert('Failed to send message.')
+      setRequestError('Failed to send message. Your draft has been restored.')
       setNewMessage(content)
     } else {
       // Re-fetch or manually update state
@@ -121,10 +142,12 @@ export default function ChatPage({ params }: { params: Promise<{ userId: string 
         .order('created_at', { ascending: true })
       
       setMessages(freshMessages || [])
+      setRequestError(null)
       scrollToBottom()
     }
     setSending(false)
   }
+
 
   if (loading) {
     return (
@@ -136,6 +159,7 @@ export default function ChatPage({ params }: { params: Promise<{ userId: string 
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col max-w-2xl mx-auto border-x border-slate-200">
+      {requestError && <p role="alert" className="p-4 text-red-600">{requestError}</p>}
       {/* Sticky Chat Header */}
       <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-10 p-4 flex items-center gap-4">
         <Link href="/messages" className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500">
